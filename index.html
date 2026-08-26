@@ -1,0 +1,699 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>华夏全景 - 中国旅游指南</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+<style>
+:root{--primary:#1a73e8;--primary-dark:#1557b0;--accent:#ea4335;--accent-light:#fce8e6;--success:#34a853;--warning:#fbbc04;--bg-dark:#1a1a2e;--bg-card:#16213e;--bg-panel:#0f3460;--text-primary:#e0e0e0;--text-secondary:#a0a0a0;--border:#2a2a4a;--shadow:0 4px 20px rgba(0,0,0,0.3);--radius:12px;--radius-sm:8px;--transition:all 0.3s cubic-bezier(0.4,0,0.2,1)}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','PingFang SC','Microsoft YaHei',sans-serif;background:var(--bg-dark);color:var(--text-primary)}
+#app{display:flex;width:100vw;height:100vh}
+#sidebar{width:380px;height:100vh;background:var(--bg-card);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:var(--transition);z-index:1000}
+#sidebar.collapsed{transform:translateX(-380px)}
+#main-content{flex:1;position:relative;height:100vh}
+#map{width:100%;height:100%;background:#0a0a1a}
+.sidebar-header{padding:20px;border-bottom:1px solid var(--border);background:linear-gradient(135deg,var(--bg-panel),var(--bg-card))}
+.sidebar-header h1{font-size:22px;font-weight:700;color:#fff;display:flex;align-items:center;gap:10px}
+.sidebar-header h1 i{color:var(--accent)}
+.sidebar-header p{font-size:12px;color:var(--text-secondary);margin-top:4px}
+.search-box{padding:15px 20px;border-bottom:1px solid var(--border)}
+.search-box .input-wrap{position:relative}
+.search-box input{width:100%;padding:12px 16px 12px 42px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--bg-dark);color:var(--text-primary);font-size:14px;outline:none;transition:var(--transition)}
+.search-box input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(26,115,232,0.2)}
+.search-box i.search-icon{position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-secondary);font-size:14px}
+.search-results{margin-top:8px;max-height:200px;overflow-y:auto}
+.search-results .result-item{padding:8px 12px;border-radius:6px;cursor:pointer;font-size:13px;transition:var(--transition)}
+.search-results .result-item:hover{background:var(--bg-panel)}
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab-btn{flex:1;padding:12px;text-align:center;font-size:13px;color:var(--text-secondary);cursor:pointer;border:none;background:none;transition:var(--transition);position:relative}
+.tab-btn:hover{color:var(--text-primary)}
+.tab-btn.active{color:var(--primary)}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:2px;background:var(--primary);border-radius:2px}
+.sidebar-content{flex:1;overflow-y:auto;padding:15px}
+.sidebar-content::-webkit-scrollbar{width:6px}
+.sidebar-content::-webkit-scrollbar-track{background:var(--bg-dark)}
+.sidebar-content::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+.card{background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;transition:var(--transition)}
+.card:hover{border-color:var(--primary);box-shadow:var(--shadow)}
+.card-title{font-size:15px;font-weight:600;color:#fff;margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.card-title i{color:var(--primary)}
+.card-text{font-size:13px;color:var(--text-secondary);line-height:1.6}
+.city-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.city-item{padding:10px 12px;background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--radius-sm);cursor:pointer;text-align:center;font-size:13px;transition:var(--transition)}
+.city-item:hover{border-color:var(--primary);background:var(--bg-panel);transform:translateY(-1px)}
+.city-item .city-name{font-weight:500;color:#fff}
+.city-item .city-count{font-size:11px;color:var(--text-secondary);margin-top:2px}
+.attraction-item{display:flex;gap:12px;padding:12px;background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:10px;cursor:pointer;transition:var(--transition)}
+.attraction-item:hover{border-color:var(--primary);box-shadow:var(--shadow)}
+.attraction-item .thumb{width:70px;height:70px;border-radius:var(--radius-sm);object-fit:cover;background:var(--bg-panel);flex-shrink:0}
+.attraction-item .info{flex:1;min-width:0}
+.attraction-item .info .name{font-size:14px;font-weight:600;color:#fff;margin-bottom:4px}
+.attraction-item .info .desc{font-size:12px;color:var(--text-secondary);line-height:1.5;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.attraction-item .info .tags{margin-top:6px;display:flex;gap:4px;flex-wrap:wrap}
+.tag{padding:2px 8px;border-radius:10px;font-size:10px;background:var(--bg-panel);color:var(--text-secondary);border:1px solid var(--border)}
+.weather-widget{background:linear-gradient(135deg,#1a73e8,#4fc3f7);border-radius:var(--radius);padding:20px;margin-bottom:15px;color:#fff}
+.weather-widget .temp{font-size:36px;font-weight:300}
+.weather-widget .desc{font-size:14px;opacity:0.9;margin-top:4px}
+.weather-widget .details{display:flex;gap:20px;margin-top:12px;font-size:12px;opacity:0.85}
+.weather-widget .details span{display:flex;align-items:center;gap:4px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:2000;justify-content:center;align-items:center;backdrop-filter:blur(4px)}
+.modal-overlay.active{display:flex}
+.modal{background:var(--bg-card);border:1px solid var(--border);border-radius:16px;width:90%;max-width:700px;max-height:85vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.5);animation:modalIn 0.3s ease}
+@keyframes modalIn{from{opacity:0;transform:scale(0.95) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal-header{padding:24px;border-bottom:1px solid var(--border);position:relative}
+.modal-header h2{font-size:20px;color:#fff;margin-bottom:4px}
+.modal-header .subtitle{font-size:13px;color:var(--text-secondary)}
+.modal-body{padding:24px}
+.modal-close{position:absolute;top:20px;right:20px;width:32px;height:32px;border-radius:50%;border:1px solid var(--border);background:var(--bg-dark);color:var(--text-secondary);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:var(--transition)}
+.modal-close:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.detail-images{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px}
+.detail-images .img-item{height:150px;border-radius:var(--radius-sm);object-fit:cover;background:var(--bg-panel);width:100%}
+.detail-images .img-item:first-child{grid-column:span 2;height:200px}
+.info-section{margin-bottom:20px}
+.info-section h3{font-size:16px;color:#fff;margin-bottom:10px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.info-section p{font-size:14px;color:var(--text-secondary);line-height:1.8}
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.info-grid .info-item{padding:10px;background:var(--bg-dark);border-radius:var(--radius-sm);border:1px solid var(--border)}
+.info-grid .info-item .label{font-size:11px;color:var(--text-secondary);margin-bottom:4px}
+.info-grid .info-item .value{font-size:14px;color:#fff;font-weight:500}
+.transport-item{display:flex;align-items:center;gap:12px;padding:10px 14px;background:var(--bg-dark);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:8px}
+.transport-item i{font-size:18px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.transport-item i.train{background:rgba(26,115,232,0.2);color:var(--primary)}
+.transport-item i.plane{background:rgba(52,168,83,0.2);color:var(--success)}
+.transport-item i.bus{background:rgba(251,188,4,0.2);color:var(--warning)}
+.transport-item .info .name{font-size:14px;color:#fff}
+.transport-item .info .desc{font-size:12px;color:var(--text-secondary)}
+.map-controls{position:absolute;top:20px;right:20px;z-index:1000;display:flex;flex-direction:column;gap:8px}
+.map-btn{width:40px;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:var(--transition);box-shadow:var(--shadow)}
+.map-btn:hover{background:var(--primary);border-color:var(--primary)}
+.map-legend{position:absolute;bottom:30px;right:20px;z-index:1000;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;box-shadow:var(--shadow)}
+.map-legend .legend-item{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);margin-bottom:4px}
+.map-legend .legend-item:last-child{margin-bottom:0}
+.map-legend .dot{width:10px;height:10px;border-radius:50%}
+.province-info{position:absolute;bottom:30px;left:50%;transform:translateX(-50%);z-index:1000;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:12px 24px;box-shadow:var(--shadow);font-size:14px;display:none}
+.province-info.visible{display:block}
+.province-info span{color:var(--primary);font-weight:600}
+.loading{display:flex;align-items:center;justify-content:center;height:200px}
+.loading::after{content:'';width:30px;height:30px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 0.8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.stats-bar{display:flex;gap:12px;padding:10px 20px;border-bottom:1px solid var(--border)}
+.stat-item{text-align:center}
+.stat-item .num{font-size:18px;font-weight:700;color:var(--primary)}
+.stat-item .label{font-size:10px;color:var(--text-secondary)}
+.leaflet-popup-content-wrapper{background:var(--bg-card);color:var(--text-primary);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow)}
+.leaflet-popup-tip{background:var(--bg-card)}
+.leaflet-popup-content{margin:12px 16px;font-size:13px}
+.leaflet-popup-content .popup-title{font-size:15px;font-weight:600;color:#fff;margin-bottom:6px}
+.leaflet-popup-content .popup-desc{font-size:12px;color:var(--text-secondary);line-height:1.5}
+.leaflet-container a.leaflet-popup-close-button{color:var(--text-secondary)}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-track{background:var(--bg-dark)}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--primary)}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.fade-in{animation:fadeIn 0.3s ease}
+.slide-up{animation:slideUp 0.4s ease}
+.mobile-toggle{display:none;position:absolute;top:20px;left:20px;z-index:1001;width:40px;height:40px;border-radius:10px;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);cursor:pointer;align-items:center;justify-content:center;font-size:16px;box-shadow:var(--shadow)}
+@media(max-width:768px){
+  #sidebar{position:absolute;left:-380px;top:0;bottom:0;box-shadow:var(--shadow)}
+  #sidebar.open{left:0}
+  .mobile-toggle{display:flex}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <button class="mobile-toggle" id="mobileToggle"><i class="fas fa-bars"></i></button>
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1><i class="fas fa-mountain-sun"></i> 华夏全景</h1>
+      <p>中国旅游指南 · 全国城市与景点全覆盖</p>
+    </div>
+    <div class="search-box">
+      <div class="input-wrap">
+        <i class="fas fa-search search-icon"></i>
+        <input type="text" id="searchInput" placeholder="搜索城市、景点、地标..." />
+      </div>
+      <div class="search-results" id="searchResults"></div>
+    </div>
+    <div class="stats-bar">
+      <div class="stat-item"><div class="num" id="statCities">34</div><div class="label">省级区划</div></div>
+      <div class="stat-item"><div class="num" id="statSpots">0</div><div class="label">景点收录</div></div>
+      <div class="stat-item"><div class="num" id="statRoutes">0</div><div class="label">路线推荐</div></div>
+    </div>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="provinces"><i class="fas fa-map"></i> 省市</button>
+      <button class="tab-btn" data-tab="attractions"><i class="fas fa-camera"></i> 景点</button>
+      <button class="tab-btn" data-tab="weather"><i class="fas fa-cloud-sun"></i> 天气</button>
+      <button class="tab-btn" data-tab="transport"><i class="fas fa-route"></i> 交通</button>
+    </div>
+    <div class="sidebar-content" id="sidebarContent"></div>
+  </aside>
+  <div id="main-content">
+    <div id="map"></div>
+    <div class="map-controls">
+      <button class="map-btn" id="btnHome" title="回到全国视图"><i class="fas fa-home"></i></button>
+      <button class="map-btn" id="btnLocate" title="我的位置"><i class="fas fa-crosshairs"></i></button>
+      <button class="map-btn" id="btnLayer" title="切换图层"><i class="fas fa-layer-group"></i></button>
+      <button class="map-btn" id="btnFullscreen" title="全屏"><i class="fas fa-expand"></i></button>
+    </div>
+    <div class="map-legend">
+      <div class="legend-item"><div class="dot" style="background:#ea4335"></div> 热门景点</div>
+      <div class="legend-item"><div class="dot" style="background:#1a73e8"></div> 城市中心</div>
+      <div class="legend-item"><div class="dot" style="background:#34a853"></div> 自然风光</div>
+      <div class="legend-item"><div class="dot" style="background:#fbbc04"></div> 历史古迹</div>
+    </div>
+    <div class="province-info" id="provinceInfo">当前视图：<span id="currentProvince">全国</span></div>
+  </div>
+</div>
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">景点详情</h2>
+      <div class="subtitle" id="modalSubtitle"></div>
+      <button class="modal-close" id="modalClose"><i class="fas fa-times"></i></button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+// ========== DATA ==========
+const PROVINCES_DATA=[
+  {name:"北京",type:"直辖市",center:[116.4074,39.9042],zoom:10,capital:"北京",desc:"中华人民共和国首都"},
+  {name:"天津",type:"直辖市",center:[117.1901,39.1256],zoom:10,capital:"天津",desc:"中国北方最大港口城市"},
+  {name:"河北",type:"省",center:[114.5149,38.0428],zoom:7,capital:"石家庄",desc:"环抱京津，东临渤海"},
+  {name:"山西",type:"省",center:[112.5624,37.8735],zoom:7,capital:"太原",desc:"华夏文明发祥地之一"},
+  {name:"内蒙古",type:"自治区",center:[111.7656,43.8174],zoom:6,capital:"呼和浩特",desc:"中国最大草原牧区"},
+  {name:"辽宁",type:"省",center:[123.4315,41.8057],zoom:7,capital:"沈阳",desc:"中国重要老工业基地"},
+  {name:"吉林",type:"省",center:[125.3245,43.8965],zoom:7,capital:"长春",desc:"汽车与光学之都"},
+  {name:"黑龙江",type:"省",center:[126.6615,45.7420],zoom:6,capital:"哈尔滨",desc:"中国最北最东的省份"},
+  {name:"上海",type:"直辖市",center:[121.4737,31.2304],zoom:10,capital:"上海",desc:"国际金融贸易中心"},
+  {name:"江苏",type:"省",center:[118.7969,32.0603],zoom:7,capital:"南京",desc:"鱼米之乡，吴韵汉风"},
+  {name:"浙江",type:"省",center:[120.1551,30.2875],zoom:7,capital:"杭州",desc:"丝绸之府，鱼米之乡"},
+  {name:"安徽",type:"省",center:[117.2830,31.8612],zoom:7,capital:"合肥",desc:"徽文化发源地"},
+  {name:"福建",type:"省",center:[119.3062,26.0753],zoom:7,capital:"福州",desc:"海上丝绸之路起点"},
+  {name:"江西",type:"省",center:[115.8922,28.6765],zoom:7,capital:"南昌",desc:"红色故都，绿色家园"},
+  {name:"山东",type:"省",center:[117.0009,36.6758],zoom:7,capital:"济南",desc:"齐鲁大地，孔孟之乡"},
+  {name:"河南",type:"省",center:[113.6654,34.7570],zoom:7,capital:"郑州",desc:"中原腹地，华夏文明发祥地"},
+  {name:"湖北",type:"省",center:[114.3055,30.5928],zoom:7,capital:"武汉",desc:"九省通衢，千湖之省"},
+  {name:"湖南",type:"省",center:[112.9388,28.2282],zoom:7,capital:"长沙",desc:"锦绣潇湘，伟人故里"},
+  {name:"广东",type:"省",center:[113.2806,23.1252],zoom:7,capital:"广州",desc:"改革开放前沿"},
+  {name:"广西",type:"自治区",center:[108.3200,22.8240],zoom:7,capital:"南宁",desc:"桂林山水甲天下"},
+  {name:"海南",type:"省",center:[110.3492,20.0174],zoom:7,capital:"海口",desc:"国际旅游岛"},
+  {name:"重庆",type:"直辖市",center:[106.5516,29.5630],zoom:8,capital:"重庆",desc:"山城雾都"},
+  {name:"四川",type:"省",center:[104.0668,30.5723],zoom:6,capital:"成都",desc:"天府之国"},
+  {name:"贵州",type:"省",center:[106.7135,26.5783],zoom:7,capital:"贵阳",desc:"公园省"},
+  {name:"云南",type:"省",center:[102.7103,25.0438],zoom:6,capital:"昆明",desc:"彩云之南"},
+  {name:"西藏",type:"自治区",center:[91.1409,29.6456],zoom:6,capital:"拉萨",desc:"世界屋脊，雪域高原"},
+  {name:"陕西",type:"省",center:[108.9402,34.3416],zoom:7,capital:"西安",desc:"十三朝古都所在地"},
+  {name:"甘肃",type:"省",center:[103.8236,36.0580],zoom:6,capital:"兰州",desc:"丝绸之路黄金段"},
+  {name:"青海",type:"省",center:[101.7789,36.6232],zoom:6,capital:"西宁",desc:"中华水塔，三江之源"},
+  {name:"宁夏",type:"自治区",center:[106.2782,38.4664],zoom:7,capital:"银川",desc:"塞上江南"},
+  {name:"新疆",type:"自治区",center:[87.6177,43.7930],zoom:5,capital:"乌鲁木齐",desc:"中国面积最大的省级行政区"},
+  {name:"香港",type:"特别行政区",center:[114.1733,22.3200],zoom:11,capital:"香港",desc:"东方之珠"},
+  {name:"澳门",type:"特别行政区",center:[113.5491,22.1987],zoom:12,capital:"澳门",desc:"世界旅游休闲中心"},
+  {name:"台湾",type:"省",center:[121.5090,25.0443],zoom:8,capital:"台北",desc:"宝岛台湾"}
+];
+
+const ATTRACTIONS_DATA={
+  "北京": [
+    {name:"故宫博物院",type:"历史古迹",coord:[116.397,39.918],img:"https://images.unsplash.com/photo-1584450150050-4b9bdbd51f68?w=800",desc:"明清两代皇家宫殿，世界最大木质古建筑群，1987年列入世界文化遗产。",tickets:"60元",hours:"8:30-17:00",duration:"3-4小时",tips:"需提前网上预约",wh:true},
+    {name:"八达岭长城",type:"历史古迹",coord:[116.016,40.353],img:"https://images.unsplash.com/photo-1508804052814-cd3ba865a116?w=800",desc:"万里长城最精华地段，景色壮观设施完善。",tickets:"40元",hours:"6:30-16:30",duration:"2-3小时",tips:"穿舒适运动鞋",wh:true},
+    {name:"天坛公园",type:"历史古迹",coord:[116.407,39.886],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"明清皇帝祭天专用祭坛，中国古代建筑艺术杰作。",tickets:"15元",hours:"6:00-21:00",duration:"1-2小时",tips:"早晨可见居民晨练",wh:true},
+    {name:"颐和园",type:"历史古迹",coord:[116.275,39.998],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国现存最大皇家园林，昆明湖与万寿山相映成趣。",tickets:"30元",hours:"6:00-18:00",duration:"2-3小时",tips:"夏天荷花盛开最美",wh:true},
+    {name:"南锣鼓巷",type:"特色街区",coord:[116.402,39.938],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"北京最古老街区之一，740多年历史。",tickets:"免费",hours:"全天",duration:"1-2小时",tips:"周末人多"}
+  ],
+  "陕西": [
+    {name:"秦始皇兵马俑",type:"历史古迹",coord:[109.273,34.384],img:"https://images.unsplash.com/photo-1591619715277-5a548b671e5e?w=800",desc:"世界第八大奇迹，秦始皇陵陪葬坑，8000件陶俑气势磅礴。",tickets:"120元",hours:"8:30-17:00",duration:"3-4小时",tips:"请讲解员可大幅提升体验",wh:true},
+    {name:"西安古城墙",type:"历史古迹",coord:[108.947,34.265],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国现存最完整古代城垣，周长13.74公里。",tickets:"54元",hours:"8:00-22:00",duration:"1-2小时",tips:"租自行车环墙骑行",wh:true},
+    {name:"华山",type:"自然风光",coord:[110.087,34.483],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"五岳之西岳，以险著称。长空栈道惊险刺激。",tickets:"160元",hours:"全天",duration:"1-2天",tips:"夜爬华山看日出",wh:true}
+  ],
+  "四川": [
+    {name:"九寨沟",type:"自然风光",coord:[103.918,33.252],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"人间仙境，童话世界，1992年列入世界自然遗产。",tickets:"190元",hours:"7:00-18:00",duration:"1-2天",tips:"秋季（10月）最美",wh:true},
+    {name:"峨眉山",type:"自然风光",coord:[103.347,29.558],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"四大佛教名山之一，金顶日出与云海壮观。",tickets:"160元",hours:"全天",duration:"2-3天",tips:"山顶温差大",wh:true},
+    {name:"乐山大佛",type:"历史古迹",coord:[103.769,29.538],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"世界最大石刻弥勒佛坐像，通高71米。",tickets:"80元",hours:"7:30-18:30",duration:"2-3小时",tips:"可乘船观赏全貌",wh:true}
+  ],
+  "浙江": [
+    {name:"西湖",type:"自然风光",coord:[120.148,30.247],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国大陆首批国家重点风景名胜区，苏堤春晓、断桥残雪名扬天下。",tickets:"免费",hours:"全天",duration:"半天-1天",tips:"骑行环湖最佳",wh:true},
+    {name:"乌镇",type:"特色街区",coord:[120.487,30.745],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国首批历史文化名镇，典型江南水乡。",tickets:"东栅110/西栅150",hours:"全天",duration:"1天",tips:"西栅夜景极美"}
+  ],
+  "云南": [
+    {name:"丽江古城",type:"历史古迹",coord:[100.233,26.872],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"800多年历史，1997年列入世界文化遗产。",tickets:"50元",hours:"全天",duration:"1-2天",tips:"夜晚四方街纳西舞蹈",wh:true},
+    {name:"玉龙雪山",type:"自然风光",coord:[100.257,27.098],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"海拔5596米，北半球最南大雪山。",tickets:"105元",hours:"7:00-18:00",duration:"1天",tips:"山顶极寒，需租防寒服"}
+  ],
+  "广东": [
+    {name:"广州塔",type:"现代都市",coord:[113.324,23.106],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"高600米，广州城市新地标。",tickets:"150元",hours:"9:30-22:30",duration:"1-2小时",tips:"傍晚登塔看日落夜景"},
+    {name:"开平碉楼",type:"历史古迹",coord:[112.576,22.347],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"广东唯一世界文化遗产，中西合璧碉楼建筑群。",tickets:"联票180元",hours:"8:30-17:30",duration:"1天",tips:"电影《让子弹飞》取景地",wh:true}
+  ],
+  "江苏": [
+    {name:"苏州园林",type:"历史古迹",coord:[120.619,31.318],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国古典园林代表，拙政园、留园列入世界文化遗产。",tickets:"70-90元",hours:"7:30-17:30",duration:"半天-1天",tips:"清晨入园人少景美",wh:true},
+    {name:"中山陵",type:"历史古迹",coord:[118.849,32.055],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"孙中山先生陵墓，392级台阶寓意深刻。",tickets:"免费（需预约）",hours:"8:30-17:00",duration:"1-2小时",tips:"392级台阶象征当时人口"}
+  ],
+  "上海": [
+    {name:"外滩",type:"现代都市",coord:[121.490,31.239],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"万国建筑群与陆家嘴天际线隔江对望。",tickets:"免费",hours:"全天",duration:"1-2小时",tips:"傍晚至夜间最佳"},
+    {name:"东方明珠",type:"现代都市",coord:[121.499,31.239],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"高468米，曾是中国第一高建筑。",tickets:"180元",hours:"8:00-21:00",duration:"1-2小时",tips:"透明悬空观光廊刺激"}
+  ],
+  "山东": [
+    {name:"泰山",type:"自然风光",coord:[117.135,36.250],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"五岳之首，帝王封禅圣地。日出、云海、晚霞三大奇观。",tickets:"115元",hours:"全天",duration:"1天",tips:"夜爬泰山看日出",wh:true},
+    {name:"曲阜三孔",type:"历史古迹",coord:[116.985,35.580],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"孔庙、孔府、孔林，孔子故里。",tickets:"联票140元",hours:"8:00-17:30",duration:"2-3小时",tips:"建议请导游讲解",wh:true}
+  ],
+  "新疆": [
+    {name:"天山天池",type:"自然风光",coord:[88.139,43.888],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"博格达峰下高山湖泊，古称'瑶池'。",tickets:"95元",hours:"8:00-20:00",duration:"半天-1天",tips:"山顶气温低",wh:true},
+    {name:"喀纳斯湖",type:"自然风光",coord:[87.043,48.576],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"中国最美湖泊之一，湖水随季节变换颜色。",tickets:"160元",hours:"8:00-20:00",duration:"1-2天",tips:"9月下旬金秋最美"}
+  ],
+  "西藏": [
+    {name:"布达拉宫",type:"历史古迹",coord:[91.117,29.654],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"世界海拔最高宫殿群，1994年列入世界文化遗产。",tickets:"200元",hours:"9:00-16:00",duration:"2-3小时",tips:"需提前预约，每日限流",wh:true},
+    {name:"纳木错",type:"自然风光",coord:[90.579,30.733],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"西藏三大圣湖之一，海拔4718米。",tickets:"120元",hours:"6:00-18:00",duration:"1天",tips:">4700米，注意高反"}
+  ],
+  "福建": [
+    {name:"武夷山",type:"自然风光",coord:[117.983,27.663],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"世界文化与自然双遗产，九曲溪漂流必体验。",tickets:"140元",hours:"7:00-17:00",duration:"1-2天",tips:"竹筏需提前预约",wh:true},
+    {name:"鼓浪屿",type:"特色街区",coord:[118.082,24.450],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"海上花园，2017年列入世界文化遗产。",tickets:"35元（船票）",hours:"全天",duration:"1天",tips:"住一晚体验清晨宁静",wh:true}
+  ],
+  "湖南": [
+    {name:"张家界",type:"自然风光",coord:[110.483,29.117],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国第一个国家森林公园，电影《阿凡达》悬浮山原型。",tickets:"225元",hours:"7:00-18:00",duration:"2-3天",tips:"袁家界和天子山不可错过",wh:true},
+    {name:"凤凰古城",type:"特色街区",coord:[109.599,27.947],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"路易艾黎眼中'中国最美小城'。",tickets:"免费",hours:"全天",duration:"1-2天",tips:"清晨沱江泛舟最佳"}
+  ],
+  "湖北": [
+    {name:"武当山",type:"历史古迹",coord:[111.007,32.467],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"道教名山，太极拳发源地，1994年列入世界文化遗产。",tickets:"130元",hours:"7:00-17:30",duration:"1-2天",tips:"金殿和紫霄宫必看",wh:true},
+    {name:"黄鹤楼",type:"历史古迹",coord:[114.305,30.545],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"江南三大名楼之首，崔颢名诗使其名扬天下。",tickets:"70元",hours:"8:00-18:00",duration:"1-2小时",tips:"日景夜景各有韵味"}
+  ],
+  "河南": [
+    {name:"龙门石窟",type:"历史古迹",coord:[112.471,34.557],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国四大石窟之一，卢舍那大佛高17.14米。2000年列入世界文化遗产。",tickets:"90元",hours:"7:00-18:30",duration:"2-3小时",tips:"建议请导游讲解",wh:true},
+    {name:"少林寺",type:"历史古迹",coord:[112.939,34.507],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"禅宗祖庭，少林武术发源地。",tickets:"80元",hours:"7:30-17:00",duration:"2-3小时",tips:"武术表演时间固定"}
+  ],
+  "安徽": [
+    {name:"黄山",type:"自然风光",coord:[118.167,30.133],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"世界文化与自然双遗产，奇松、怪石、云海、温泉四绝。",tickets:"190元",hours:"全天",duration:"1-2天",tips:"山顶住宿需提前预订",wh:true},
+    {name:"宏村",type:"特色街区",coord:[117.940,29.893],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国最美乡村之一，2000年列入世界文化遗产。",tickets:"104元",hours:"全天",duration:"半天-1天",tips:"清晨和傍晚摄影最佳",wh:true}
+  ],
+  "广西": [
+    {name:"桂林漓江",type:"自然风光",coord:[110.180,25.250],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"桂林山水甲天下，漓江是精华。",tickets:"215元",hours:"7:00-17:30",duration:"4-5小时",tips:"杨堤-兴坪段最精华",wh:true},
+    {name:"北海银滩",type:"自然风光",coord:[109.119,21.481],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最理想海滨浴场，滩长平沙细白。",tickets:"免费",hours:"全天",duration:"1天",tips:"注意防晒"}
+  ],
+  "贵州": [
+    {name:"黄果树瀑布",type:"自然风光",coord:[105.667,25.990],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最大瀑布，高77.8米宽101米。",tickets:"180元",hours:"7:30-17:30",duration:"2-3小时",tips:"水帘洞需穿雨衣"},
+    {name:"西江苗寨",type:"特色街区",coord:[108.173,26.496],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"全球最大苗族聚居村寨，夜景万家灯火壮观。",tickets:"90元",hours:"全天",duration:"1天",tips:"夜景必拍"}
+  ],
+  "甘肃": [
+    {name:"敦煌莫高窟",type:"历史古迹",coord:[94.809,40.037],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"世界最大佛教艺术宝库，735个洞窟、4.5万㎡壁画。1987年列入世界文化遗产。",tickets:"238元",hours:"8:00-18:00",duration:"3-4小时",tips:"需提前30天预约",wh:true},
+    {name:"鸣沙山月牙泉",type:"自然风光",coord:[94.671,40.079],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"沙泉共生奇妙景观，月牙泉千年不涸。",tickets:"110元",hours:"6:00-19:30",duration:"2-3小时",tips:"傍晚可拍沙山日落"}
+  ],
+  "青海": [
+    {name:"青海湖",type:"自然风光",coord:[100.239,36.970],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"中国最大内陆咸水湖，7-8月油菜花盛开美不胜收。",tickets:"90元",hours:"全天",duration:"1天",tips:"环湖骑行是经典体验"},
+    {name:"茶卡盐湖",type:"自然风光",coord:[99.079,36.717],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国天空之镜，湖面如镜倒映天光云影。",tickets:"60元",hours:"7:00-21:00",duration:"2-3小时",tips:"晴天倒影效果最佳"}
+  ],
+  "内蒙古": [
+    {name:"呼伦贝尔草原",type:"自然风光",coord:[119.766,49.212],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最大草原，'风吹草低见牛羊'真实写照。",tickets:"免费",hours:"全天",duration:"2-3天",tips:"7-8月草原最美"},
+    {name:"额济纳胡杨林",type:"自然风光",coord:[101.076,41.938],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"世界仅存三大胡杨林之一，金秋十月满眼金黄。",tickets:"230元",hours:"7:00-18:00",duration:"1-2天",tips:"10月初最佳观赏期"}
+  ],
+  "河北": [
+    {name:"承德避暑山庄",type:"历史古迹",coord:[117.939,40.997],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"清代皇帝避暑场所，中国现存最大古典皇家园林。1994年列入世界文化遗产。",tickets:"130元",hours:"7:00-18:00",duration:"1天",tips:"外八庙联票更佳",wh:true},
+    {name:"北戴河",type:"自然风光",coord:[119.526,39.838],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最著名海滨度假胜地之一。",tickets:"免费",hours:"全天",duration:"1-2天",tips:"夏季避暑旺季"}
+  ],
+  "山西": [
+    {name:"平遥古城",type:"历史古迹",coord:[112.184,37.201],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国保存最完整古代县城，1997年列入世界文化遗产。",tickets:"125元",hours:"8:00-18:00",duration:"1-2天",tips:"住古城客栈体验最佳",wh:true},
+    {name:"云冈石窟",type:"历史古迹",coord:[113.142,40.114],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国四大石窟之一，254个洞窟、51000余尊造像。2001年列入世界文化遗产。",tickets:"120元",hours:"8:30-17:30",duration:"2-3小时",tips:"请导游讲解效果更佳",wh:true}
+  ],
+  "辽宁": [
+    {name:"沈阳故宫",type:"历史古迹",coord:[123.449,41.796],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"中国仅存两大皇家宫殿建筑群之一。",tickets:"60元",hours:"8:30-17:30",duration:"1-2小时",tips:"与北京故宫风格迥异"},
+    {name:"本溪水洞",type:"自然风光",coord:[124.033,41.300],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最长水上游览溶洞，地下暗河3000米。",tickets:"150元",hours:"8:30-16:30",duration:"2-3小时",tips:"洞内温度低需备衣物"}
+  ],
+  "吉林": [
+    {name:"长白山天池",type:"自然风光",coord:[128.005,42.008],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最大火山口湖，三江之源。",tickets:"169元",hours:"7:00-17:00",duration:"1天",tips:"天气影响大需提前查看"}
+  ],
+  "黑龙江": [
+    {name:"冰雪大世界",type:"现代都市",coord:[126.567,45.777],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"世界最大冰雪主题乐园，冰雕灯光流光溢彩。",tickets:"328元",hours:"11:00-21:30",duration:"3-4小时",tips:"12月底至2月开放"},
+    {name:"中央大街",type:"特色街区",coord:[126.617,45.771],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"亚洲最长步行街之一，欧式建筑保存完好。",tickets:"免费",hours:"全天",duration:"1-2小时",tips:"马迭尔冰棍必尝"}
+  ],
+  "海南": [
+    {name:"三亚亚龙湾",type:"自然风光",coord:[109.658,18.231],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最理想海湾，被称为'东方夏威夷'。",tickets:"免费",hours:"全天",duration:"1-2天",tips:"可体验各种水上运动"},
+    {name:"天涯海角",type:"自然风光",coord:[109.388,18.300],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中国最南端标志性景观。",tickets:"68元",hours:"7:00-18:30",duration:"1-2小时",tips:"傍晚看日落极美"}
+  ],
+  "重庆": [
+    {name:"武隆天坑地缝",type:"自然风光",coord:[107.905,29.394],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"世界自然遗产，电影《变形金刚4》取景地。",tickets:"135元",hours:"8:00-17:00",duration:"1天",tips:"需大量步行",wh:true},
+    {name:"洪崖洞",type:"特色街区",coord:[106.570,29.560],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"重庆标志性吊脚楼建筑群，夜晚灯火辉煌。",tickets:"免费",hours:"全天",duration:"1-2小时",tips:"晚上18:00-23:00看夜景"}
+  ],
+  "香港": [
+    {name:"维多利亚港",type:"现代都市",coord:[114.171,22.294],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"世界三大天然良港之一，每晚'幻彩咏香江'灯光秀。",tickets:"免费",hours:"全天",duration:"1-2小时",tips:"尖沙咀海滨长廊观夜景"},
+    {name:"太平山顶",type:"现代都市",coord:[114.150,22.276],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"香港岛最高点，俯瞰维港两岸绝佳位置。",tickets:"52元",hours:"7:00-24:00",duration:"1-2小时",tips:"傍晚上山看日落夜景"}
+  ],
+  "澳门": [
+    {name:"大三巴牌坊",type:"历史古迹",coord:[113.541,22.197],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"澳门标志性建筑，圣保禄大教堂前壁遗址。",tickets:"免费",hours:"全天",duration:"30分钟",tips:"前面手信街可购物"},
+    {name:"威尼斯人度假村",type:"现代都市",coord:[113.558,22.147],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"以威尼斯为主题的大型度假村。",tickets:"免费",hours:"全天",duration:"2-3小时",tips:"贡多拉船约140澳门元"}
+  ],
+  "台湾": [
+    {name:"日月潭",type:"自然风光",coord:[120.912,23.864],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"台湾最大天然淡水湖，湖光山色美不胜收。",tickets:"300台币",hours:"全天",duration:"1天",tips:"可租自行车环湖"},
+    {name:"台北故宫",type:"历史古迹",coord:[121.549,25.102],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"收藏中华民族珍贵文物69万件。",tickets:"350台币",hours:"8:30-18:30",duration:"2-3小时",tips:"导览器必租"}
+  ],
+  "天津": [
+    {name:"天津之眼",type:"现代都市",coord:[117.188,39.153],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"世界唯一桥上摩天轮，高120米。",tickets:"70元",hours:"9:30-21:30",duration:"1小时",tips:"建议傍晚乘坐看日落"},
+    {name:"古文化街",type:"特色街区",coord:[117.193,39.138],img:"https://images.unsplash.com/photo-1545987796-200677ee1011?w=800",desc:"天津最传统文化特色街区。",tickets:"免费",hours:"全天",duration:"1-2小时",tips:"可品尝天津三绝"}
+  ],
+  "江西": [
+    {name:"庐山",type:"自然风光",coord:[115.983,29.558],img:"https://images.unsplash.com/photo-1519681393784-d120267933ba?w=800",desc:"中华十大名山，苏轼'不识庐山真面目'名句出处。",tickets:"160元",hours:"全天",duration:"1-2天",tips:"牯岭镇是山上中心",wh:true},
+    {name:"婺源",type:"自然风光",coord:[117.558,29.248],img:"https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=800",desc:"中国最美乡村，春季油菜花与徽派建筑相映成画。",tickets:"通票210元",hours:"全天",duration:"1-2天",tips:"3-4月油菜花季最美"}
+  ]
+};
+
+const TRANSPORT_DATA={
+  "北京":{train:["上海4.5h","广州8h","西安4.5h","成都7.5h","哈尔滨7.5h","沈阳4h","济南1.5h","南京3.5h"],plane:["上海2h","广州3h","成都2.5h","西安2h","乌鲁木齐3.5h","拉萨4h"],bus:["天津2h","石家庄3h"]},
+  "上海":{train:["北京4.5h","杭州1h","南京1.5h","苏州0.5h","济南3h","厦门5h"],plane:["北京2h","广州2.5h","成都2.5h","三亚3h","昆明3h"],bus:["杭州2h","苏州1h","南京3.5h"]},
+  "广州":{train:["北京8h","上海7h","深圳0.5h","桂林2.5h","厦门4h","长沙2.5h","武汉4h"],plane:["北京3h","上海2.5h","成都2.5h","三亚1.5h","昆明2.5h"],bus:["深圳2h","珠海2h"]},
+  "成都":{train:["北京7.5h","上海8h","重庆1.5h","西安3h","昆明5h","贵阳3h"],plane:["北京2.5h","上海2.5h","拉萨2h","三亚2.5h","昆明1.5h"],bus:["重庆3h","九寨沟8h"]},
+  "西安":{train:["北京4.5h","上海6h","成都3h","兰州2.5h","郑州2h"],plane:["北京2h","上海2h","成都1.5h","拉萨2.5h"],bus:["华山2h","兵马俑1.5h"]},
+  "杭州":{train:["上海1h","北京5h","南京1.5h","厦门4.5h"],plane:["北京2h","成都2.5h","三亚2.5h"],bus:["乌镇1.5h","千岛湖2.5h"]},
+  "南京":{train:["上海1.5h","北京3.5h","杭州1.5h","武汉3h"],plane:["北京2h","成都2.5h","三亚3h"],bus:["扬州1.5h","镇江1h"]},
+  "武汉":{train:["北京4h","上海4h","广州4h","成都4.5h","西安4.5h"],plane:["北京2h","上海2h","成都2h","三亚2h"],bus:["武当山5h","恩施5h"]},
+  "长沙":{train:["广州2.5h","武汉1.5h","上海4.5h","成都5h"],plane:["北京2h","上海2h","成都2h","三亚2h"],bus:["张家界4h","凤凰4h"]},
+  "昆明":{train:["成都5h","贵阳2h","上海9h","广州6h"],plane:["北京3h","上海3h","成都1.5h","三亚2h"],bus:["大理4h","丽江6h"]},
+  "桂林":{train:["广州2.5h","长沙3h","贵阳2.5h"],plane:["北京3h","上海2.5h","成都2h"],bus:["阳朔1h"]},
+  "哈尔滨":{train:["北京7.5h","沈阳2h","大连4h","长春1h"],plane:["北京2h","上海2.5h","三亚4h"],bus:["雪乡5h","亚布力3h"]},
+  "沈阳":{train:["北京4h","哈尔滨2h","大连2h"],plane:["北京1.5h","上海2h","三亚4h"],bus:["丹东3h","鞍山1.5h"]},
+  "大连":{train:["沈阳2h","北京4.5h","上海5h"],plane:["北京1.5h","上海2h","三亚4h"],bus:["旅顺1h","金石滩1h"]},
+  "青岛":{train:["北京3h","上海4h","济南1.5h"],plane:["北京1.5h","上海1.5h","成都3h"],bus:["烟台3h","威海3h"]},
+  "厦门":{train:["上海5h","广州4h","深圳2h","福州1.5h"],plane:["北京2.5h","上海2h","成都2.5h"],bus:["鼓浪屿0.5h","泉州1.5h"]},
+  "深圳":{train:["广州0.5h","上海7h","厦门2h","武汉4h"],plane:["北京3h","上海2.5h","成都2.5h","三亚1.5h"],bus:["珠海2h","香港1.5h"]}
+};
+
+// ========== STATE ==========
+let currentTab='provinces',currentProvince=null,map,markers=[],layerGroups={},currentLayer='gaode',weatherCache={};
+
+// ========== INIT ==========
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap();
+  renderSidebar();
+  bindEvents();
+  updateStats();
+});
+
+function initMap(){
+  map=L.map('map',{center:[35.0,104.0],zoom:4,minZoom:3,maxZoom:18,zoomControl:false,attributionControl:false});
+  L.control.zoom({position:'topright'}).addTo(map);
+  L.control.attribution({position:'bottomright',prefix:false}).addTo(map);
+  loadTileLayer('gaode');
+  addProvinceMarkers();
+  map.on('moveend',updateProvinceInfo);
+}
+
+function loadTileLayer(type){
+  if(window._tileLayer)map.removeLayer(window._tileLayer);
+  const tiles={
+    gaode:{url:'https://webrd0{s}.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}',attr:'©高德地图',sub:'1234'},
+    osm:{url:'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',attr:'©OpenStreetMap',sub:'abc'},
+    satellite:{url:''}
+  };
+  window._tileLayer=L.tileLayer(tiles[type].url,{attribution:tiles[type].attr,subdomains:tiles[type].sub,maxZoom:19}).addTo(map);
+  currentLayer=type;
+}
+
+function addProvinceMarkers(){
+  PROVINCES_DATA.forEach(prov=>{
+    const marker=L.marker(prov.center,{icon:createIcon('province')}).addTo(map);
+    marker.bindPopup(`<div class="popup-title">${prov.name}</div><div class="popup-desc">${prov.desc}</div><div style="margin-top:8px;color:#1a73e8;cursor:pointer" onclick="showProvince('${prov.name}')"><i class="fas fa-arrow-right"></i> 查看详情</div>`);
+    marker.on('click',()=>showProvince(prov.name));
+    markers.push(marker);
+  });
+}
+
+function createIcon(type){
+  const c={province:'#1a73e8',attraction:'#ea4335',nature:'#34a853',history:'#fbbc04',modern:'#9c27b0',street:'#ff9800'};
+  const i={province:'fa-map-marker-alt',attraction:'fa-camera',nature:'fa-tree',history:'fa-landmark',modern:'fa-city',street:'fa-store'};
+  return L.divIcon({className:'',html:`<div style="width:32px;height:32px;border-radius:50%;background:${c[type]||c.province};display:flex;align-items:center;justify-content:center;color:#fff;box-shadow:0 2px 8px rgba(0,0,0,0.3);border:2px solid #fff"><i class="fas ${i[type]||i.province}" style="font-size:12px"></i></div>`,iconSize:[32,32],iconAnchor:[16,16]});
+}
+
+function showProvince(name){
+  currentProvince=name;
+  const prov=PROVINCES_DATA.find(p=>p.name===name);
+  if(!prov)return;
+  map.flyTo(prov.center,prov.zoom,{duration:1.5});
+  document.getElementById('currentProvince').textContent=name;
+  document.getElementById('provinceInfo').classList.add('visible');
+  if(ATTRACTIONS_DATA[name]){
+    addAttrMarkers(name);
+    renderAttrList(name);
+    switchTab('attractions');
+  }
+  loadWeather(name,prov.center);
+}
+
+function addAttrMarkers(name){
+  Object.values(layerGroups).forEach(g=>map.removeLayer(g));
+  layerGroups={};
+  const attrs=ATTRACTIONS_DATA[name];
+  if(!attrs)return;
+  const group=L.featureGroup();
+  attrs.forEach(attr=>{
+    const tc={'历史古迹':'#fbbc04','自然风光':'#34a853','现代都市':'#9c27b0','特色街区':'#ff9800'};
+    const m=L.circleMarker(attr.coord,{radius:8,fillColor:tc[attr.type]||'#ea4335',color:'#fff',weight:2,opacity:1,fillOpacity:0.8});
+    m.bindPopup(`<div class="popup-title">${attr.name}</div><div class="popup-desc">${attr.desc.substring(0,60)}...</div><div style="margin-top:6px;color:#1a73e8;cursor:pointer" onclick="showAttrDetail('${name}','${attr.name}')"><i class="fas fa-info-circle"></i> 详细信息</div>`);
+    m.addTo(group);
+  });
+  group.addTo(map);
+  layerGroups[name]=group;
+}
+
+function showAttrDetail(provName,attrName){
+  const attrs=ATTRACTIONS_DATA[provName];
+  const attr=attrs?.find(a=>a.name===attrName);
+  if(!attr)return;
+  document.getElementById('modalTitle').textContent=attr.name;
+  document.getElementById('modalSubtitle').textContent=`${provName} · ${attr.type}`;
+  let imgs='';
+  if(attr.img)imgs=`<div class="detail-images"><img class="img-item" src="${attr.img}" onerror="this.style.display='none'"/></div>`;
+  document.getElementById('modalBody').innerHTML=`
+    ${imgs}
+    <div class="info-section"><h3><i class="fas fa-info-circle"></i> 景点介绍</h3><p>${attr.desc}</p></div>
+    <div class="info-section"><h3><i class="fas fa-clipboard-list"></i> 实用信息</h3>
+    <div class="info-grid">
+      <div class="info-item"><div class="label">门票价格</div><div class="value">${attr.tickets||'暂无'}</div></div>
+      <div class="info-item"><div class="label">开放时间</div><div class="value">${attr.hours||'暂无'}</div></div>
+      <div class="info-item"><div class="label">建议游玩</div><div class="value">${attr.duration||'暂无'}</div></div>
+      <div class="info-item"><div class="label">景点类型</div><div class="value">${attr.type}</div></div>
+    </div></div>
+    ${attr.tips?`<div class="info-section"><h3><i class="fas fa-lightbulb"></i> 游玩贴士</h3><p>${attr.tips}</p></div>`:''}
+    ${attr.wh?'<div class="info-section"><p style="color:#fbbc04"><i class="fas fa-star"></i> 联合国教科文组织世界文化遗产</p></div>':''}
+  `;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+// ========== WEATHER ==========
+async function loadWeather(city,coord){
+  const el=document.getElementById('weather');
+  if(!el)return;
+  if(weatherCache[city]&&Date.now()-weatherCache[city].time<1800000){
+    renderWeather(city,weatherCache[city].data);return;
+  }
+  el.innerHTML='<div class="loading"></div>';
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coord[1]}&longitude=${coord[0]}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m,apparent_temperature&daily=temperature_2m_max,temperature_2m_min,sunrise,sunset,uv_index_max,precipitation_sum,weather_code&timezone=auto&forecast_days=7`);
+    if(!r.ok)throw new Error();
+    const d=await r.json();
+    weatherCache[city]={data:d,time:Date.now()};
+    renderWeather(city,d);
+  }catch(e){
+    el.innerHTML='<div class="card-text">天气加载失败</div>';
+  }
+}
+
+function renderWeather(city,d){
+  const cur=d.current,dy=d.daily;
+  const wc={0:'晴朗',1:'大部分晴朗',2:'多云',3:'阴天',45:'雾',51:'毛毛雨',61:'小雨',63:'中雨',65:'大雨',71:'小雪',73:'中雪',75:'大雪',80:'阵雨',81:'强阵雨',82:'暴雨',95:'雷暴'};
+  let h=`<div class="weather-widget slide-up"><div style="display:flex;justify-content:space-between;align-items:flex-start"><div><div style="font-size:16px;opacity:0.9">${city} · 实时天气</div><div class="temp">${Math.round(cur.temperature_2m)}°</div><div class="desc">${wc[cur.weather_code]||'未知'}</div></div><div style="text-align:right;font-size:12px;opacity:0.8"><div>体感${Math.round(cur.apparent_temperature)}°C</div><div style="margin-top:4px">湿度${cur.relative_humidity_2m}%</div><div style="margin-top:4px">风速${cur.wind_speed_10m}km/h</div></div></div><div style="margin-top:15px;display:flex;gap:8px;overflow-x:auto;padding-bottom:5px">`;
+  for(let i=0;i<7;i++){
+    const dt=new Date(dy.time[i]);
+    const dn=['周日','周一','周二','周三','周四','周五','周六'];
+    h+=`<div style="min-width:60px;text-align:center;padding:8px 6px;background:rgba(255,255,255,0.1);border-radius:8px"><div style="font-size:11px;opacity:0.8">${i===0?'今天':dn[dt.getDay()]}</div><div style="font-size:18px;margin:4px 0">${Math.round(dy.temperature_2m_max[i])}°</div><div style="font-size:11px;opacity:0.7">${Math.round(dy.temperature_2m_min[i])}°</div></div>`;
+  }
+  h+='</div></div>';
+  document.getElementById('weather').innerHTML=h;
+}
+
+// ========== RENDER ==========
+function renderSidebar(){
+  const c=document.getElementById('sidebarContent');
+  switch(currentTab){
+    case'provinces':renderProvinces();break;
+    case'attractions':renderAttrList(currentProvince);break;
+    case'weather':renderWeatherTab();break;
+    case'transport':renderTransportTab();break;
+  }
+}
+
+function renderProvinces(){
+  const c=document.getElementById('sidebarContent');
+  const types={};
+  PROVINCES_DATA.forEach(p=>{if(!types[p.type])types[p.type]=[];types[p.type].push(p)});
+  let h='';
+  ['直辖市','省','自治区','特别行政区'].forEach(t=>{
+    if(!types[t])return;
+    h+=`<div class="card"><div class="card-title"><i class="fas fa-map-marker-alt"></i> ${t} (${types[t].length})</div><div class="city-grid">`;
+    types[t].forEach(p=>{
+      const cnt=ATTRACTIONS_DATA[p.name]?.length||0;
+      h+=`<div class="city-item" onclick="showProvince('${p.name}')"><div class="city-name">${p.name}</div><div class="city-count">${cnt}个景点</div></div>`;
+    });
+    h+='</div></div>';
+  });
+  c.innerHTML=h;
+}
+
+function renderAttrList(provName){
+  const c=document.getElementById('sidebarContent');
+  if(!provName||!ATTRACTIONS_DATA[provName]){
+    let h='<div class="card"><div class="card-title"><i class="fas fa-mountain-sun"></i> 热门景点</div><div class="card-text">选择省份查看景点</div></div>';
+    Object.entries(ATTRACTIONS_DATA).slice(0,5).forEach(([prov,attrs])=>{
+      h+=`<div class="card"><div class="card-title">${prov}</div>`;
+      attrs.slice(0,3).forEach(a=>{
+        h+=`<div class="attraction-item" onclick="showAttrDetail('${prov}','${a.name}')"><img class="thumb" src="${a.img}" onerror="this.style.background='#0f3460'"/><div class="info"><div class="name">${a.name}</div><div class="desc">${a.desc.substring(0,60)}...</div><div class="tags"><span class="tag">${a.type}</span></div></div></div>`;
+      });
+      h+='</div>';
+    });
+    c.innerHTML=h;return;
+  }
+  const attrs=ATTRACTIONS_DATA[provName];
+  let h=`<div class="card"><div class="card-title"><i class="fas fa-map-marker-alt"></i> ${provName} · ${attrs.length}个景点</div></div>`;
+  attrs.forEach(a=>{
+    h+=`<div class="attraction-item" onclick="showAttrDetail('${provName}','${a.name}')"><img class="thumb" src="${a.img}" onerror="this.style.background='#0f3460'"/><div class="info"><div class="name">${a.name}</div><div class="desc">${a.desc.substring(0,80)}...</div><div class="tags"><span class="tag">${a.type}</span>${a.wh?'<span class="tag" style="background:rgba(251,188,4,0.2);color:#fbbc04">世界遗产</span>':''}</div></div></div>`;
+  });
+  c.innerHTML=h;
+}
+
+function renderWeatherTab(){
+  const c=document.getElementById('sidebarContent');
+  if(currentProvince){
+    const p=PROVINCES_DATA.find(x=>x.name===currentProvince);
+    c.innerHTML='<div id="weather"></div>';
+    loadWeather(currentProvince,p.center);
+  }else{
+    let h='<div class="card"><div class="card-title"><i class="fas fa-cloud-sun"></i> 全国天气</div><div class="card-text">点击省份查看天气</div></div><div id="weather-list">';
+    PROVINCES_DATA.slice(0,12).forEach(p=>{
+      const sn=p.name.replace(/[^\w]/g,'_');
+      h+=`<div class="card" onclick="selectProvWeather('${p.name}')" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:15px;font-weight:600;color:#fff">${p.name}</div><div class="wd-${sn}" style="font-size:12px;color:#a0a0a0;margin-top:4px">加载中...</div></div><div class="wt-${sn}" style="font-size:24px;font-weight:300;color:#1a73e8">--°</div></div></div>`;
+    });
+    h+='</div>';
+    c.innerHTML=h;
+    PROVINCES_DATA.slice(0,12).forEach(p=>loadWeatherCard(p.name,p.center));
+  }
+}
+
+function renderTransportTab(){
+  const c=document.getElementById('sidebarContent');
+  if(currentProvince&&TRANSPORT_DATA[currentProvince]){
+    const t=TRANSPORT_DATA[currentProvince];
+    let h=`<div class="card"><div class="card-title"><i class="fas fa-route"></i> ${currentProvince} · 交通指南</div></div>`;
+    if(t.train){h+='<div class="card"><div class="card-title" style="font-size:13px"><i class="fas fa-train" style="color:#1a73e8"></i> 高铁/火车</div>';t.train.forEach(x=>{h+=`<div class="transport-item"><i class="train fas fa-train"></i><div class="info"><div class="name">${x}</div></div></div>`});h+='</div>'}
+    if(t.plane){h+='<div class="card"><div class="card-title" style="font-size:13px"><i class="fas fa-plane" style="color:#34a853"></i> 飞机</div>';t.plane.forEach(x=>{h+=`<div class="transport-item"><i class="plane fas fa-plane"></i><div class="info"><div class="name">${x}</div></div></div>`});h+='</div>'}
+    if(t.bus){h+='<div class="card"><div class="card-title" style="font-size:13px"><i class="fas fa-bus" style="color:#fbbc04"></i> 大巴</div>';t.bus.forEach(x=>{h+=`<div class="transport-item"><i class="bus fas fa-bus"></i><div class="info"><div class="name">${x}</div></div></div>`});h+='</div>'}
+    c.innerHTML=h;
+  }else{
+    let h='<div class="card"><div class="card-title"><i class="fas fa-route"></i> 交通查询</div><div class="card-text">选择出发城市</div></div><div class="card"><div class="card-title" style="font-size:13px">热门出发城市</div><div class="city-grid">';
+    Object.keys(TRANSPORT_DATA).forEach(city=>{
+      h+=`<div class="city-item" onclick="selectTransCity('${city}')"><div class="city-name">${city}</div></div>`;
+    });
+    h+='</div></div>';
+    c.innerHTML=h;
+  }
+}
+
+function selectProvWeather(name){
+  currentProvince=name;
+  const p=PROVINCES_DATA.find(x=>x.name===name);
+  if(!p)return;
+  showProvince(name);
+  switchTab('weather');
+}
+
+function selectTransCity(city){
+  currentProvince=city;
+  renderTransportTab();
+}
+
+// ========== EVENTS ==========
+function bindEvents(){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.addEventListener('click',()=>switchTab(b.dataset.tab)));
+  document.getElementById('searchInput').addEventListener('input',handleSearch);
+  document.getElementById('btnHome').addEventListener('click',()=>{
+    map.flyTo([35.0,104.0],4,{duration:1});
+    currentProvince=null;
+    document.getElementById('provinceInfo').classList.remove('visible');
+    document.getElementById('currentProvince').textContent='全国';
+    Object.values(layerGroups).forEach(g=>map.removeLayer(g));
+    layerGroups={};
+    renderProvinces();
+    switchTab('provinces');
+  });
+  document.getElementById('btnLocate').addEventListener('click',()=>map.locate({setView:true,maxZoom:12}));
+  document.getElementById('btnLayer').addEventListener('click',()=>{
+    const l=['gaode','osm'];const i=(l.indexOf(currentLayer)+1)%l.length;loadTileLayer(l[i]);
+  });
+  document.getElementById('btnFullscreen').addEventListener('click',()=>{
+    if(!document.fullscreenElement)document.documentElement.requestFullscreen();else document.exitFullscreen();
+  });
+  document.getElementById('modalClose').addEventListener('click',()=>document.getElementById('modalOverlay').classList.remove('active'));
+  document.getElementById('modalOverlay').addEventListener('click',e=>{if(e.target===e.currentTarget)document.getElementById('modalOverlay').classList.remove('active')});
+  document.getElementById('mobileToggle').addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('open'));
+}
+
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelector(`[data-tab="${tab}"]`).classList.add('active');
+  renderSidebar();
+}
+
+function handleSearch(e){
+  const q=e.target.value.trim().toLowerCase();
+  const r=document.getElementById('searchResults');
+  if(q.length<1){r.innerHTML='';return}
+  let h='';
+  PROVINCES_DATA.forEach(p=>{
+    if(p.name.toLowerCase().includes(q)||p.capital.toLowerCase().includes(q))
+      h+=`<div class="result-item" onclick="showProvince('${p.name}');document.getElementById('searchInput').value=''"><i class="fas fa-map-marker-alt" style="color:#1a73e8;margin-right:8px"></i>${p.name}</div>`;
+  });
+  Object.entries(ATTRACTIONS_DATA).forEach(([prov,attrs])=>{
+    attrs.forEach(a=>{
+      if(a.name.toLowerCase().includes(q))
+        h+=`<div class="result-item" onclick="showAttrDetail('${prov}','${a.name}');document.getElementById('searchInput').value=''"><i class="fas fa-camera" style="color:#ea4335;margin-right:8px"></i>${a.name} <span style="color:#a0a0a0;font-size:11px">(${prov})</span></div>`;
+    });
+  });
+  if(!h)h='<div class="card-text" style="padding:10px">未找到相关结果</div>';
+  r.innerHTML=h;
+}
+
+function updateStats(){
+  document.getElementById('statCities').textContent=PROVINCES_DATA.length;
+  let t=0;Object.values(ATTRACTIONS_DATA).forEach(a=>t+=a.length);
+  document.getElementById('statSpots').textContent=t;
+  document.getElementById('statRoutes').textContent=Object.keys(TRANSPORT_DATA).length;
+}
+
+function updateProvinceInfo(){
+  if(map.getZoom()<5){
+    document.getElementById('currentProvince').textContent='全国';
+    document.getElementById('provinceInfo').classList.add('visible');
+  }
+}
+
+async function loadWeatherCard(name,coord){
+  try{
+    const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coord[1]}&longitude=${coord[0]}&current=temperature_2m,weather_code&timezone=auto`);
+    const d=await r.json();
+    const t=Math.round(d.current.temperature_2m);
+    const sn=name.replace(/[^\w]/g,'_');
+    const te=document.querySelector(`.wt-${sn}`),de=document.querySelector(`.wd-${sn}`);
+    if(te)te.textContent=t+'°';
+    if(de)de.textContent='实时温度';
+  }catch(e){}
+}
+
+window.showProvince=showProvince;
+window.showAttrDetail=showAttrDetail;
+window.selectProvWeather=selectProvWeather;
+window.selectTransCity=selectTransCity;
+</script>
+</body>
+</html>
